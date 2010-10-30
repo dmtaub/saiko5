@@ -50,6 +50,20 @@
 
 static struct udpapp_state s;
 
+static float maxr = 1.0,maxg = 1.0, maxb= 1.0;
+static float minr = 0.0,ming = 0.0, minb= 0.0;
+
+#define DOSCALE(v,maxv,minv) \
+ if (v>maxv){maxv = v;} \
+ else if (v < minv) { minv = v;} \
+ v =  minv + v/(maxv-minv); 
+
+static scaleColor(float *r, float *g, float *b){
+  DOSCALE(*r,maxr,minr);
+  DOSCALE(*g,maxg,ming);
+  DOSCALE(*b,maxb,minb);
+}
+
 void dummy_app_appcall(void)
 {
 }
@@ -59,7 +73,7 @@ void udpapp_init(void)
 	uip_ipaddr_t addr;
 	struct uip_udp_conn *c;
 
-	uip_ipaddr(&addr, 192, 168, 1, 2);
+	uip_ipaddr(&addr, 255, 255, 255, 255);
 	c = uip_udp_new(&addr, HTONS(0));
 	if(c != NULL) {
 		uip_udp_bind(c, HTONS(2222));
@@ -90,14 +104,27 @@ static unsigned char parse_msg(void)
   
   if (result == 0) {
     lo_arg** argv = lo_message_get_argv(message);
-    
+   
+    if (lo_message_get_argc(message) != 3) {
+        lo_message_free(message);
+         s.state = STATE_QUIT;
+       return 0;}
+       
     lo_arg* red = argv[0];
     lo_arg* green = argv[1];
     lo_arg* blue = argv[2];  
-
+    
     float fRed = red->f;
     float fGreen = green->f;
     float fBlue = blue->f;
+    
+    
+    char* msg_path = lo_get_path(pData,bytes_available);
+    if (msg_path != NULL) {
+      if ((msg_path[0] == '/') && !((msg_path[1] == 'l') || (msg_path[1] == 'L'))) {
+        scaleColor(&fRed,&fGreen,&fBlue);
+      }
+    }
         
     analogWrite(redPin, (unsigned char)(fRed * 0xFF));
     analogWrite(greenPin, (unsigned char)(fGreen * 0xFF));
